@@ -1,0 +1,7 @@
+<Solution>
+  <Configurations>
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Project Path="clipboard listener.vcxproj" Id="37592209-3e73-47fa-b6bb-c74ab1eae757" />
+</Solution>
