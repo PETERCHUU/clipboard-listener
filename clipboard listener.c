@@ -1,4 +1,5 @@
 ﻿#include <stdio.h>
+#include <shlobj.h>
 #include <windows.h>
 #include "sqlite3.h"
 
@@ -17,9 +18,13 @@
 
 #define IDM_STOP  102
 
-#define IDM_EXIT  103
+#define IDM_SCAN  103
+
+#define IDM_EXIT  104
 
 
+
+#define Name_Max_Length 25
 
 #define SERVICE_START_LOADING L"Clipboard： Listening..."
 
@@ -111,7 +116,7 @@ int CheckIfExistInDatabase(const char* content) {
 
         if (sqlite3_step(res) == SQLITE_ROW) {
 
-            exists = sqlite3_column_int(res, 0); // 取得 EXISTS 的結果 (0 或 1)
+            exists = sqlite3_column_int(res, 0);
 
         }
     }
@@ -155,7 +160,7 @@ void Check_Clip_Board(HWND hwnd) {
 
             size_t dataSize = GlobalSize(hData);
 
-            if (dataSize > 0 && dataSize < 16) {
+            if (dataSize > 0 && dataSize < Name_Max_Length) {
 
                 char* pszText = (char*)GlobalLock(hData);
 
@@ -181,6 +186,80 @@ void Check_Clip_Board(HWND hwnd) {
         CloseClipboard();
     }
 }
+
+
+BOOL SelectFolder(HWND hwnd,wchar_t* path, size_t length) {
+    BROWSEINFOW bi = { 0 };
+    bi.hwndOwner = hwnd;
+    bi.lpszTitle = L"Select a folder for file name scanning：";
+    bi.ulFlags = BIF_RETURNONLYFSDIRS | BIF_NEWDIALOGSTYLE; // only folder in dialog
+
+	// 1. popup folder selection dialog and get the selected folder's ID List
+    LPITEMIDLIST pidl = SHBrowseForFolderW(&bi);
+
+    if (pidl != NULL) {
+        // 2. makgin ID List into real folder path
+        BOOL success = SHGetPathFromIDListW(pidl, path);
+
+		// 3. release the memory allocated for the ID List
+        CoTaskMemFree(pidl);
+		return success;
+    }
+	return FALSE;
+}
+
+
+void ScanFolderFiles(const wchar_t* folderPath) {
+
+    wchar_t searchPath[MAX_PATH];
+    WIN32_FIND_DATAW findData;
+    HANDLE hFind = INVALID_HANDLE_VALUE;
+
+    // 1. binding the folder name with search option \*
+    swprintf_s(searchPath, MAX_PATH, L"%s\\*", folderPath);
+
+    // 2. start scanning
+    hFind = FindFirstFileW(searchPath, &findData);
+
+    if (hFind == INVALID_HANDLE_VALUE) {
+        MessageBoxW(NULL, L"Folder Fail to Scan, or empty\n", L"Clipboard Listener", MB_OK);
+        return;
+    }
+    char asciiFileName[260];
+
+    do {
+        if (!(findData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)) {
+
+            size_t nameLen = wcslen(findData.cFileName);
+            if ( nameLen > 0 && nameLen < Name_Max_Length) {
+
+                if (IsPureAscii(findData.cFileName)) {
+
+                    WideCharToMultiByte(CP_ACP, 0, findData.cFileName, -1, asciiFileName, 260, NULL, NULL);
+
+                    SaveToDatabase(asciiFileName);
+                }
+
+            }
+
+        }
+    } while (FindNextFileW(hFind, &findData) != 0);
+
+    MessageBoxW(NULL, L"Folder Scan finixh\n", L"Clipboard Listener", MB_OK);
+
+    FindClose(hFind);
+}
+
+BOOL IsPureAscii(const wchar_t* str) {
+    while (*str) {
+        if (*str > 127) {
+            return FALSE;
+        }
+        str++;
+    }
+    return TRUE;
+}
+
 
 LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 
@@ -212,9 +291,14 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 
             }
 
+
+            AppendMenu(hMenu, MF_STRING, IDM_SCAN, L"Folder Scanning (Scan)");
+
             AppendMenu(hMenu, MF_SEPARATOR, 0, NULL);
 
             AppendMenu(hMenu, MF_STRING, IDM_EXIT, L"Close Application (Exit)");
+
+
 
 
 
@@ -244,6 +328,13 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             UpdateTrayTip(hwnd, SERVICE_START_STOP);
 
             break;
+        case IDM_SCAN:
+
+            SelectFolder(hwnd, Message_Buffer, 256);
+
+            ScanFolderFiles(Message_Buffer);
+			break;
+        
         case IDM_EXIT:
 
             DestroyWindow(hwnd);
