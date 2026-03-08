@@ -81,7 +81,7 @@ void SaveToDatabase(const char* content) {
     sqlite3_stmt* res;
 
     // use OR IGNORE：if CONTENT exist，do nothing
-    const char* sql = "INSERT OR IGNORE INTO CLIPBOARD (CONTENT) VALUES (?);";
+    const char* sql = "INSERT OR IGNORE INTO CLIPBOARD (CONTENT) VALUES (LOWER(?));";
 
     if (sqlite3_prepare_v2(STATUS_DB, sql, -1, &res, 0) == SQLITE_OK) {
 
@@ -110,7 +110,7 @@ int CheckIfExistInDatabase(const char* content) {
 
     int exists = 0;
 
-    const char* sql = "SELECT EXISTS(SELECT 1 FROM CLIPBOARD WHERE CONTENT = ? LIMIT 1);";
+    const char* sql = "SELECT EXISTS(SELECT 1 FROM CLIPBOARD WHERE CONTENT = LOWER(?) LIMIT 1);";
 
     if (sqlite3_prepare_v2(STATUS_DB, sql, -1, &res, 0) == SQLITE_OK) {
 
@@ -163,24 +163,29 @@ void Check_Clip_Board(HWND hwnd) {
             size_t dataSize = GlobalSize(hData);
 
             if (dataSize > 0 && dataSize < Name_Max_Length) {
-
+                
                 char* pszText = (char*)GlobalLock(hData);
 
                 if (pszText != NULL) {
 
-                    if (CheckIfExistInDatabase(pszText)) {
+                    char* myCopy = _strdup(pszText);
+
+                    GlobalUnlock(hData);
+
+                    char* dot = strrchr(myCopy, '.');
+                    if (dot) *dot = '\0';
+
+                    if (CheckIfExistInDatabase(myCopy)) {
 
                         MessageBoxW(NULL, L"String existing... ", L"Clipboard Listener", MB_OK | MB_ICONINFORMATION);
 
                     }
                     else {
 
-                        SaveToDatabase(pszText);
+                        SaveToDatabase(myCopy);
 
                     }
-
-
-                    GlobalUnlock(hData);
+					free(myCopy);
                 }
             }
         }
