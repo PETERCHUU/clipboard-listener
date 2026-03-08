@@ -2,6 +2,8 @@
 #include <shlobj.h>
 #include <windows.h>
 #include "sqlite3.h"
+#include <shlwapi.h>
+#pragma comment(lib, "shlwapi.lib") // 記得連結這個庫
 
 #ifndef _countof
 #define _countof(array) (sizeof(array) / sizeof(array[0]))
@@ -208,6 +210,24 @@ BOOL SelectFolder(HWND hwnd,wchar_t* path, size_t length) {
 	return FALSE;
 }
 
+void Remove_Last_Match(char* source, const char* matcher) {
+    size_t source_len = strlen(source);
+    size_t match_len = strlen(matcher);
+
+    if (match_len == 0 || source_len == 0 || match_len > source_len) return ;
+
+
+    for (int i = --match_len; i >= 0; i--) {
+        if (source[--source_len]!= matcher[i]) {
+            return ;
+        }
+    }
+
+	source[source_len] = '\0';
+
+    return ;
+}
+
 
 void ScanFolderFiles(const wchar_t* folderPath) {
 
@@ -230,12 +250,23 @@ void ScanFolderFiles(const wchar_t* folderPath) {
     do {
         if (!(findData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)) {
 
+            PathRemoveExtensionW(findData.cFileName);
+
             size_t nameLen = wcslen(findData.cFileName);
             if ( nameLen > 0 && nameLen < Name_Max_Length) {
 
                 if (IsPureAscii(findData.cFileName)) {
 
                     WideCharToMultiByte(CP_ACP, 0, findData.cFileName, -1, asciiFileName, 260, NULL, NULL);
+
+                    char* dot = strrchr(asciiFileName, '.');
+                    if (dot) *dot = '\0';
+
+                    // you will know why I remove these all filelname at the end if you knwo what this for
+					Remove_Last_Match(asciiFileName, "-new");
+					Remove_Last_Match(asciiFileName, "-U");
+					Remove_Last_Match(asciiFileName, "-UC");
+					Remove_Last_Match(asciiFileName, "-C");
 
                     SaveToDatabase(asciiFileName);
                 }
