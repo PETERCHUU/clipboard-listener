@@ -1,6 +1,7 @@
 ﻿#include <stdio.h>
 #include <shlobj.h>
 #include <windows.h>
+#include <process.h>
 #include "sqlite3.h"
 #include <shlwapi.h>
 #pragma comment(lib, "shlwapi.lib") // 記得連結這個庫
@@ -44,7 +45,12 @@ sqlite3* STATUS_DB;
 wchar_t Message_Buffer[256];
 
 
+unsigned __stdcall ShowMessageBoxThread(void* arg) {
 
+    MessageBoxW(NULL, L"String existing... ", L"Clipboard Listener", MB_OK | MB_ICONINFORMATION);
+
+    return 0;
+}
 
 int Init_Database() {
 
@@ -177,7 +183,7 @@ void Check_Clip_Board(HWND hwnd) {
 
                     if (CheckIfExistInDatabase(myCopy)) {
 
-                        MessageBoxW(NULL, L"String existing... ", L"Clipboard Listener", MB_OK | MB_ICONINFORMATION);
+                        _beginthreadex(NULL, 0, ShowMessageBoxThread, NULL, 0, NULL);
 
                     }
                     else {
