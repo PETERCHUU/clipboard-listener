@@ -27,7 +27,7 @@
 
 
 
-#define Name_Max_Length 25
+#define Name_Max_Length 40
 
 #define SERVICE_START_LOADING L"Clipboard： Listening..."
 
@@ -143,6 +143,43 @@ void UpdateTrayTip(HWND hwnd, const wchar_t* text) {
 
 }
 
+
+BOOL GetName(char* name) {
+    if (name == NULL) return FALSE;
+    char* read_Ptr = name;
+    char* Write_Ptr = name;
+    BOOL Already_Break = FALSE;
+
+    for (; read_Ptr != '\0'; read_Ptr++)
+    {
+        char c = *read_Ptr;
+
+        if (isSpacecialChar(c))
+        {
+            if (c != '-')
+            {
+                Write_Ptr = name;
+                continue;
+            }
+            else if (Already_Break)
+            {
+                break;
+            }
+            else
+            {
+                Already_Break = TRUE;
+            }
+        }
+
+        *Write_Ptr++ = c;
+    }
+
+    *Write_Ptr = '\0';
+
+    return Already_Break;
+
+}
+
 void Check_Clip_Board(HWND hwnd) {
 
     if (!isListening) return;
@@ -157,47 +194,67 @@ void Check_Clip_Board(HWND hwnd) {
         retryCount++;
         Sleep(20);
     }
-    
+
 
     // if clipboard get message
     if (retryCount < 5) {
 
         HANDLE hData = GetClipboardData(CF_TEXT);
 
-        if (hData != NULL) {
+        if (hData != NULL) 
+        {
 
             size_t dataSize = GlobalSize(hData);
 
-            if (dataSize > 0 && dataSize < Name_Max_Length) {
+            if (dataSize > 0 && dataSize < Name_Max_Length) 
+            {
                 
-                char* pszText = (char*)GlobalLock(hData);
+                char* FileNameGlobalPointer = (char*)GlobalLock(hData);
 
-                if (pszText != NULL) {
+                if (FileNameGlobalPointer != NULL) 
+                {
 
-                    char* myCopy = _strdup(pszText);
-
+                    char* FileNamePointer = _strdup(FileNameGlobalPointer);
                     GlobalUnlock(hData);
 
-                    char* dot = strrchr(myCopy, '.');
-                    if (dot) *dot = '\0';
+                    if (FileNamePointer != NULL) 
+                    {
 
-                    if (CheckIfExistInDatabase(myCopy)) {
+                        if (GetName(FileNamePointer)) {
 
-                        _beginthreadex(NULL, 0, ShowMessageBoxThread, NULL, 0, NULL);
+                            if (CheckIfExistInDatabase(FileNamePointer))
+                            {
 
+                                _beginthreadex(NULL, 0, ShowMessageBoxThread, NULL, 0, NULL);
+
+                            }
+                            else
+                            {
+
+                                SaveToDatabase(FileNamePointer);
+
+                            }
+                        }
+
+                        
                     }
-                    else {
 
-                        SaveToDatabase(myCopy);
-
-                    }
-					free(myCopy);
+                    
+					free(FileNamePointer);
                 }
             }
         }
 
         CloseClipboard();
     }
+}
+
+
+
+BOOL isSpacecialChar(char c) {
+    return (!((c >= 'a' && c <= 'z') ||
+        (c >= 'A' && c <= 'Z') ||
+        (c >= '0' && c <= '9')));
 }
 
 
@@ -219,24 +276,6 @@ BOOL SelectFolder(HWND hwnd,wchar_t* path, size_t length) {
 		return success;
     }
 	return FALSE;
-}
-
-void Remove_Last_Match(char* source, const char* matcher) {
-    size_t source_len = strlen(source);
-    size_t match_len = strlen(matcher);
-
-    if (match_len == 0 || source_len == 0 || match_len > source_len) return ;
-
-
-    for (int i = --match_len; i >= 0; i--) {
-        if (source[--source_len]!= matcher[i]) {
-            return ;
-        }
-    }
-
-	source[source_len] = '\0';
-
-    return ;
 }
 
 
@@ -268,18 +307,15 @@ void ScanFolderFiles(const wchar_t* folderPath) {
 
                 if (IsPureAscii(findData.cFileName)) {
 
+					// change file name from wide char to ascii char for database
                     WideCharToMultiByte(CP_ACP, 0, findData.cFileName, -1, asciiFileName, 260, NULL, NULL);
 
-                    char* dot = strrchr(asciiFileName, '.');
-                    if (dot) *dot = '\0';
+                    if (GetName(asciiFileName)) 
+                    {
 
-                    // you will know why I remove these all filelname at the end if you knwo what this for
-					Remove_Last_Match(asciiFileName, "-new");
-					Remove_Last_Match(asciiFileName, "-U");
-					Remove_Last_Match(asciiFileName, "-UC");
-					Remove_Last_Match(asciiFileName, "-C");
+                        SaveToDatabase(asciiFileName);
+                    }
 
-                    SaveToDatabase(asciiFileName);
                 }
 
             }
