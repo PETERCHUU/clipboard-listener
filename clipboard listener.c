@@ -108,6 +108,21 @@ void SaveToDatabase(const char* content) {
 
 }
 
+int isNotSpacecialChar(char c) {
+    // if A-Z, return 2, if 0-9, return 1, else return 0
+
+    if ((c >= 'a' && c <= 'z') ||
+        (c >= 'A' && c <= 'Z')) {
+        return 2;
+    }
+
+    if (c >= '0' && c <= '9') {
+        return 1;
+    }
+
+    return 0;
+}
+
 
 
 int CheckIfExistInDatabase(const char* content) {
@@ -144,30 +159,34 @@ void UpdateTrayTip(HWND hwnd, const wchar_t* text) {
 }
 
 
-BOOL GetName(char* name) {
-    if (name == NULL) return FALSE;
+int GetName(char* name) {
+    if (name == NULL) return 0;
     char* read_Ptr = name;
     char* Write_Ptr = name;
-    BOOL Already_Break = FALSE;
+    int charStatus = 0; // 0 for start, 1 for already get a-z, 2 for already get 0-9, 4 for have '-'
 
     for (; read_Ptr != '\0'; read_Ptr++)
     {
         char c = *read_Ptr;
 
-        if (isSpacecialChar(c))
+        charStatus |= isNotSpacecialChar(c);
+
+
+
+        if (charStatus)
         {
             if (c != '-')
             {
                 Write_Ptr = name;
                 continue;
             }
-            else if (Already_Break)
+            else if (charStatus > 4)
             {
                 break;
             }
             else
             {
-                Already_Break = TRUE;
+                charStatus += 4;
             }
         }
 
@@ -176,7 +195,7 @@ BOOL GetName(char* name) {
 
     *Write_Ptr = '\0';
 
-    return Already_Break;
+    return charStatus;
 
 }
 
@@ -220,7 +239,7 @@ void Check_Clip_Board(HWND hwnd) {
                     if (FileNamePointer != NULL) 
                     {
 
-                        if (GetName(FileNamePointer)) {
+                        if (GetName(FileNamePointer)>2) {
 
                             if (CheckIfExistInDatabase(FileNamePointer))
                             {
@@ -251,11 +270,7 @@ void Check_Clip_Board(HWND hwnd) {
 
 
 
-BOOL isSpacecialChar(char c) {
-    return (!((c >= 'a' && c <= 'z') ||
-        (c >= 'A' && c <= 'Z') ||
-        (c >= '0' && c <= '9')));
-}
+
 
 
 BOOL SelectFolder(HWND hwnd,wchar_t* path, size_t length) {
@@ -310,7 +325,7 @@ void ScanFolderFiles(const wchar_t* folderPath) {
 					// change file name from wide char to ascii char for database
                     WideCharToMultiByte(CP_ACP, 0, findData.cFileName, -1, asciiFileName, 260, NULL, NULL);
 
-                    if (GetName(asciiFileName)) 
+                    if (GetName(asciiFileName)>2) 
                     {
 
                         SaveToDatabase(asciiFileName);
