@@ -112,8 +112,8 @@ void SaveToDatabase(const char* content) {
 
 }
 
+// 0 is not on list char, 1 for already get a-z, 2 for already get 0-9,
 int is_Number_or_Eng_Char(char c) {
-    // if A-Z, return 1, if 0-9, return 0, else return 0
 
     if ((c >= 'a' && c <= 'z') ||
         (c >= 'A' && c <= 'Z')) {
@@ -140,6 +140,7 @@ int GetName(char* name) {
     {
         char c = *read_Ptr;
 
+        // 0 for start, 1 for already get a-z, 2 for already get 0-9, 4 for have '-'
 		int IsCharOnList = is_Number_or_Eng_Char(c);
 
         char_Status |= IsCharOnList;
@@ -157,7 +158,7 @@ int GetName(char* name) {
                 continue;
             }
 
-            else if (char_Status > 4 && char_Status & 3 != Eng_Char)
+            else if ((char_Status > 4) && ((char_Status & 3) != Eng_Char))
             {
                 break;
             }
