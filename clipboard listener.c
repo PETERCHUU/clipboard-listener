@@ -25,6 +25,10 @@
 
 #define IDM_EXIT  104
 
+#define Num_Char 2
+
+#define Eng_Char 1
+
 
 
 #define Name_Max_Length 40
@@ -108,19 +112,71 @@ void SaveToDatabase(const char* content) {
 
 }
 
-int isNotSpacecialChar(char c) {
-    // if A-Z, return 2, if 0-9, return 1, else return 0
+int is_Number_or_Eng_Char(char c) {
+    // if A-Z, return 1, if 0-9, return 0, else return 0
 
     if ((c >= 'a' && c <= 'z') ||
         (c >= 'A' && c <= 'Z')) {
-        return 2;
+        return Eng_Char;
     }
 
     if (c >= '0' && c <= '9') {
-        return 1;
+        return Num_Char;
     }
 
     return 0;
+}
+
+
+int GetName(char* name) {
+    if (name == NULL) return 0;
+    char* read_Ptr = name;
+    char* Write_Ptr = name;
+
+    // 0 for start, 1 for already get a-z, 2 for already get 0-9, 4 for have '-'
+    int char_Status = 0;
+
+    for (; read_Ptr != '\0'; read_Ptr++)
+    {
+        char c = *read_Ptr;
+
+		int IsCharOnList = is_Number_or_Eng_Char(c);
+
+        char_Status |= IsCharOnList;
+
+        if (!IsCharOnList)
+        {
+
+            if (c != '-')
+            {
+                if (char_Status > 4) 
+                {
+                    break;
+                }
+                Write_Ptr = name;
+                continue;
+            }
+
+            else if (char_Status > 4 && char_Status & 3 != Eng_Char)
+            {
+                break;
+            }
+
+            else
+            {
+                char_Status = 4;
+            }
+
+        }
+
+        *Write_Ptr++ = c;
+
+    }
+
+    *Write_Ptr = '\0';
+
+    return char_Status;
+
 }
 
 
@@ -155,47 +211,6 @@ void UpdateTrayTip(HWND hwnd, const wchar_t* text) {
     wcsncpy_s(nid.szTip, len(nid.szTip), text, _TRUNCATE);
 
     Shell_NotifyIconW(NIM_MODIFY, &nid);
-
-}
-
-
-int GetName(char* name) {
-    if (name == NULL) return 0;
-    char* read_Ptr = name;
-    char* Write_Ptr = name;
-    int charStatus = 0; // 0 for start, 1 for already get a-z, 2 for already get 0-9, 4 for have '-'
-
-    for (; read_Ptr != '\0'; read_Ptr++)
-    {
-        char c = *read_Ptr;
-
-        charStatus |= isNotSpacecialChar(c);
-
-
-
-        if (charStatus)
-        {
-            if (c != '-')
-            {
-                Write_Ptr = name;
-                continue;
-            }
-            else if (charStatus > 4)
-            {
-                break;
-            }
-            else
-            {
-                charStatus += 4;
-            }
-        }
-
-        *Write_Ptr++ = c;
-    }
-
-    *Write_Ptr = '\0';
-
-    return charStatus;
 
 }
 
@@ -255,11 +270,8 @@ void Check_Clip_Board(HWND hwnd) {
                             }
                         }
 
-                        
+                        free(FileNamePointer);
                     }
-
-                    
-					free(FileNamePointer);
                 }
             }
         }
